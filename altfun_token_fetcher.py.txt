@@ -1,0 +1,104 @@
+import requests
+import json
+from web3 import Web3
+import logging
+
+logger = logging.getLogger(__name__)
+
+RPC_URL = "https://rpc.hyperliquid.xyz/evm"
+EXPLORER_API = "https://www.hyperscan.com/api/v2/tokens"
+
+w3 = Web3(Web3.HTTPProvider(RPC_URL))
+
+ERC20_ABI = [
+    {"constant": True, "inputs": [], "name": "name", "outputs": [{"name": "", "type": "string"}], "type": "function"},
+    {"constant": True, "inputs": [], "name": "symbol", "outputs": [{"name": "", "type": "string"}], "type": "function"},
+    {"constant": True, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function"},
+    {"constant": True, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+]
+
+def get_token_onchain(address):
+    """Fetch token data from HyperEVM RPC"""
+    try:
+        if not Web3.is_address(address):
+            logger.warning(f"Invalid address: {address}")
+            return None
+        
+        checksum = Web3.to_checksum_address(address)
+        contract = w3.eth.contract(address=checksum, abi=ERC20_ABI)
+        
+        name = contract.functions.name().call()
+        symbol = contract.functions.symbol().call()
+        decimals = contract.functions.decimals().call()
+        total_supply_raw = contract.functions.totalSupply().call()
+        total_supply = total_supply_raw / (10 ** decimals)
+        
+        logger.info(f"✓ On-chain OK: {symbol} ({name})")
+        return {
+            "address": checksum,
+            "name": name,
+            "symbol": symbol,
+            "decimals": decimals,
+            "total_supply": total_supply,
+        }
+    except Exception as e:
+        logger.error(f"RPC error: {e}")
+        return None
+
+def get_token_explorer(address):
+    """Fetch token details from hyperscan.com"""
+    try:
+        if not Web3.is_address(address):
+            return None
+        
+        url = f"{EXPLORER_API}/{address}"
+        r = requests.get(url, timeout=10)
+        
+        if r.status_code != 200:
+            return None
+        
+        data = r.json()
+        if not data:
+            return None
+        
+        return {
+            "holders": data.get("token_holders_count"),
+            "transactions": data.get("transfer_count"),
+            "creator": data.get("creator_address_hash"),
+        }
+    except Exception as e:
+        logger.error(f"Explorer error: {e}")
+        return None
+
+def get_token_info(address):
+    """Get complete token information"""
+    address = address.strip()
+    
+    onchain = get_token_onchain(address)
+    if not onchain:
+        return None
+    
+    explorer = get_token_explorer(address)
+    
+    result = dict(onchain)
+    if explorer:
+        result.update(explorer)
+    
+    return result
+
+def format_token_message(info):
+    """Format token info for Telegram"""
+    msg = f"🪙 *{info['name']}* (`{info['symbol']}`)\n"
+    msg += f"📍 `{info['address']}`\n\n"
+    msg += f"📦 Supply: `{info['total_supply']:,.0f}`\n"
+    msg += f"💰 Decimals: `{info['decimals']}`\n"
+    
+    if info.get("holders"):
+        msg += f"👥 Holders: `{info['holders']}`\n"
+    if info.get("transactions"):
+        msg += f"📊 Transactions: `{info['transactions']}`\n"
+    if info.get("creator"):
+        msg += f"👤 Creator: `{info['creator'][:10]}...`\n"
+    
+    msg += f"\n💵 Enter HYPE amount to buy:"
+    return msg

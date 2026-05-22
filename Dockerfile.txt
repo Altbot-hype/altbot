@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+WORKDIR /root/altbot
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+ENV TELEGRAM_BOT_TOKEN=""
+ENV OWNER_ADDRESS=""
+ENV OWNER_PRIVATE_KEY=""
+ENV ENCRYPTION_KEY=""
+
+CMD ["python", "bot.py"]
