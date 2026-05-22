@@ -1,0 +1,17 @@
+import os
+
+# Telegram Bot Token
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+
+# Your Wallet Address (PUBLIC - fee receiver)
+OWNER_ADDRESS = os.getenv("OWNER_ADDRESS", "0xYOUR_PUBLIC_ADDRESS")
+
+# Encryption Key for private keys
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "GENERATE_NEW_KEY_AND_SET_THIS")
+
+# HyperEVM RPC
+HYPEREVM_RPC = "https://rpc.hyperliquid.xyz/evm"
+
+# Fee Settings
+FEE_AMOUNT = 0.005  # HYPE per transaction
